@@ -1,0 +1,198 @@
+#!/usr/bin/env python3
+import argparse
+import os
+import sys
+from rich.console import Console
+from rich.rule import Rule
+from rich.table import Table
+from labequipment.zaber import ZABER as ZaberClass
+
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+
+device_paths = {
+    "upstream": {
+        "serial": "/dev/ZABER_U",
+        "config": os.path.join(BASE_DIR, "configs", "zaberconf_upstream.json")
+    },
+    "downstream": {
+        "serial": "/dev/ZABER_D",
+        "config": os.path.join(BASE_DIR, "configs", "zaberconf_downstream.json")
+    }
+}
+
+cons = Console()
+
+def check_status():
+    cons.print(Rule("Zaber Connection Status", characters="="))
+    table = Table(show_header=True, header_style="bold magenta")
+    table.add_column("Device", style="cyan")
+    table.add_column("Serial Path")
+    table.add_column("Status", justify="center")
+    table.add_column("Configed", justify="center")
+    table.add_column("Axis Numbers & Aliases", overflow="fold")
+    table.add_column("Initial", justify="center")
+    table.add_column("Directions", justify="center")
+
+    for name, path in device_paths.items():
+        serial = path["serial"]
+        config = path["config"]
+
+        if os.path.exists(serial):
+            try:
+                zaber = ZaberClass(serial_path=serial, config_path=config)
+                axis_info, initials, dirs = [], [], []
+
+                for axis in zaber.axes:
+                    alias = zaber.get_displayname(axis)
+                    axis_info.append(f"{axis.axis_number}: {alias}")
+                    initials.append(str(axis.initial) if axis.initial is not None else "-")
+                    if axis.dir_alias_neg and axis.dir_alias_pos:
+                        dirs.append(f"{axis.dir_alias_neg}/{axis.dir_alias_pos}")
+                    else:
+                        dirs.append("-")
+
+                table.add_row(
+                    name,
+                    serial,
+                    "[green]CONNECTED[/green]",
+                    "[green]Yes[/green]",
+                    "\n".join(axis_info),
+                    "\n".join(initials),
+                    "\n".join(dirs)
+                )
+            except Exception:
+                try:
+                    zaber = ZaberClass(serial_path=serial)
+                    axis_info = [f"{axis.axis_number}: Not Configed" for axis in zaber.axes]
+                    table.add_row(
+                        name,
+                        serial,
+                        "[yellow]CONNECTED[/yellow]",
+                        "[red]No[/red]",
+                        "\n".join(axis_info),
+                        "[dim]-[/dim]",
+                        "[dim]-[/dim]"
+                    )
+                except Exception as e:
+                    table.add_row(
+                        name,
+                        serial,
+                        "[yellow]CONNECTED[/yellow]",
+                        "[red]Config Error[/red]",
+                        f"[dim]{e}[/dim]",
+                        "[dim]-[/dim]",
+                        "[dim]-[/dim]"
+                    )
+        else:
+            table.add_row(
+                name,
+                serial,
+                "[red]NOT FOUND[/red]",
+                "[dim]-[/dim]",
+                "[dim]-[/dim]",
+                "[dim]-[/dim]",
+                "[dim]-[/dim]"
+            )
+    cons.print(table)
+
+def print_pos_table(zaber, axis_query=None):
+    table = Table(title="Zaber Axis Positions")
+    table.add_column("Axis")
+    table.add_column("Position")
+    table.add_column("Unit")
+    table.add_column("Homed?")
+
+    if axis_query:
+        ax_list = [zaber.get_axis(axis_query)]
+    else:
+        ax_list = zaber.axes
+
+    for axis in ax_list:
+        response = zaber.get_pos(axis)
+        name = zaber.get_displayname(axis)
+        pos = f"{response['data_converted']:.2f}"
+        unit = axis.unit
+        homed = "[green]Yes[/green]" if zaber.is_homed(axis) else "[red]No[/red]"
+        table.add_row(name, pos, unit, homed)
+
+    cons.print(table)
+
+def main():
+    parser = argparse.ArgumentParser(description='Zaber Stage Control', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('device', nargs='?', choices=device_paths.keys(), help='Device to control (upstream or downstream)')
+    parser.add_argument('--axis', '-a', type=str, help='Axis name (e.g., x, y)')
+    parser.add_argument('--value', '-v', type=float, help='Value to move')
+    parser.add_argument('--move-type', '-m', choices=['abs', 'rel'], default='abs', help='Absolute or relative move')
+    parser.add_argument('--direction', '-d', choices=['wall', 'door', 'ceiling', 'floor'], help='Direction alias')
+    parser.add_argument('--port', '-p', type=str, help='Override serial port path')
+    parser.add_argument('--status', '-s', action='store_true', help='Show connection status')
+    parser.add_argument('--print-pos', '-pp', action='store_true', help='Print current position of axis (or all axes)')
+    parser.add_argument('--home', '-hm', action='store_true', help='Home all axes or one')
+    parser.add_argument('--initial', '-ini', action='store_true', help='Move to initial position (all or one)')
+    args = parser.parse_args()
+
+    if args.status:
+        check_status()
+        return
+
+    if not args.device:
+        parser.print_help()
+        return
+
+    device_info = device_paths[args.device]
+    serial_path = args.port if args.port else device_info["serial"]
+    config_path = device_info["config"]
+
+    try:
+        zaber = ZaberClass(serial_path=serial_path, config_path=config_path)
+    except AssertionError:
+        cons.print(f"[bold red]Device {args.device} not found at {serial_path}[/bold red]")
+        cons.print("Use [cyan]ZABER -s[/cyan] to check device connection status.")
+        sys.exit(1)
+    except Exception as e:
+        cons.print(f"[bold red]Error initializing Zaber device:[/bold red] {e}")
+        sys.exit(1)
+
+    if args.axis and not args.axis.startswith("zaber_"):
+        args.axis = f"zaber_{args.device}_{args.axis}"
+
+    if args.print_pos:
+        print_pos_table(zaber, args.axis)
+        return
+
+    if args.initial:
+        if args.axis:
+            zaber.move_to_initial(args.axis)
+        else:
+            cons.print("[yellow]Moving all axes to initial positions...[/yellow]")
+            for axis in zaber.axes:
+                if axis.initial is not None:
+                    zaber.move_to_initial(axis)
+        print_pos_table(zaber, args.axis)
+        return
+
+    if args.home:
+        if args.axis:
+            cons.print(f"[blue]Homing axis: {args.axis}[/blue]")
+            zaber.home(args.axis)
+        else:
+            cons.print("[blue]Homing all axes...[/blue]")
+            zaber.home_all()
+        print_pos_table(zaber, args.axis)
+        return
+
+    if args.axis and args.value is not None:
+        cons.print(f"[green]Moving {args.axis} {'to' if args.move_type == 'abs' else 'by'} {args.value} ({args.move_type})[/green]")
+        zaber.move_axis(
+            axis=args.axis,
+            value=args.value,
+            absolute=(args.move_type == 'abs'),
+            direction=args.direction
+        )
+        print_pos_table(zaber, args.axis)
+        return
+
+    parser.print_help()
+
+if __name__ == "__main__":
+    main()
