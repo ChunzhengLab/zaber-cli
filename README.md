@@ -1,11 +1,12 @@
 # ZABER Stage Controller CLI
 
+All credits to ALICE ITS3-WP3
+
 A minimal and effective command-line interface for controlling Zaber motion stages via serial port and JSON configuration.
 
-All credit to ALICE ITS3-WP3
+---
 
-
-NOTE: 
+## NOTE: 
 One havs to make the udev rules for the serial path. This is a example works for the TB PS April 2025 @CERN
 
 ```bash
@@ -14,6 +15,8 @@ sudo udevadm control --reload-rules
 sudo udevadm trigger
 # Then physically replug both USB connections!!!
 ```
+
+---
 
 ## Features
 
@@ -71,10 +74,9 @@ ZABER upstream -a x -v 500 -m rel -d wall       # Relative move with direction a
 ZABER upstream -p /dev/ttyUSB1 -pp
 ```
 
+---
 
-⸻
-
-⚙️ Configuration File Format
+## Configuration File Format
 
 Each device has its own JSON file, e.g. /home/chun/zaberconf_upstream.json:
 ```json
@@ -96,23 +98,23 @@ Each device has its own JSON file, e.g. /home/chun/zaberconf_upstream.json:
 ]
 ```
 
-⚠️ If axis numbers change (e.g., from 1,2 → 3,4), ZABER -s will detect config mismatch and fallback to unconfigured mode.
+If axis numbers change (e.g., from 1,2 → 3,4), ZABER -s will detect config mismatch and fallback to unconfigured mode.
 
-⸻
+---
 
-💡 Tips
-	•	Axis names like x, y are automatically converted to full names like zaber_upstream_x
-	•	After -hm, -ini, or move, current position is auto-printed
-	•	Works best when devices are connected and configs are correct
+## Tips
+- Axis names like x, y are automatically converted to full names like zaber_upstream_x
+- After -hm, -ini, or move, current position is auto-printed
+- Works best when devices are connected and configs are correct
 
-⸻
+---
 
-🔧 Dependencies
-	•	Python 3
-	•	pyserial
-	•	rich
-	•	Local Zaber config JSONs
+## Dependencies
+- Python 3
+- pyserial
+- rich
+- Local Zaber config JSONs
 
-⸻
+
 
 
