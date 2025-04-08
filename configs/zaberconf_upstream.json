@@ -2,14 +2,14 @@
     {
         "name": "zaber_upstream_x",
         "axis_number": 1,
-        "initial": 20000,
+        "initial": 8000,
         "dir_alias_neg": "door",
         "dir_alias_pos": "wall"
     },
     {
         "name": "zaber_upstream_y",
         "axis_number": 2,
-        "initial": 20000,
+        "initial": 16000,
         "dir_alias_neg": "ceiling",
         "dir_alias_pos": "floor"
     }
