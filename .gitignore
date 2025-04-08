@@ -57,6 +57,3 @@ htmlcov/
 .coverage
 .cache
 .pytest_cache/
-
-# Ignore local config
-configs/*.json
