@@ -16,6 +16,9 @@ sudo udevadm trigger
 # Then physically replug both USB connections!!!
 ```
 
+To check current device symlinks:
+`ls -l /dev | grep '^l'`
+
 ---
 
 ## Features
