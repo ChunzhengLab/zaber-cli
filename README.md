@@ -13,7 +13,7 @@ One havs to make the udev rules for the serial path. This is a example works for
 sudo cp udev/96-zaber.rules /etc/udev/rules.d/
 sudo udevadm control --reload-rules
 sudo udevadm trigger
-# Then physically replug both USB connections!!!
+# Then physically replug all the USB connections!!!
 ```
 
 To check current device symlinks:
